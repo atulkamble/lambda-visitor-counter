@@ -398,6 +398,211 @@ Total Visitors
 
 ---
 
+# Code Explanation
+
+## lambda/lambda_function.py
+
+```python
+import json
+import boto3
+import os
+from botocore.exceptions import ClientError
+```
+
+| Import | Purpose |
+| --- | --- |
+| `json` | Serialize the HTTP response body to a JSON string |
+| `boto3` | AWS SDK for Python — used to talk to DynamoDB |
+| `os` | Read the `TABLE_NAME` environment variable at runtime |
+| `ClientError` | Catch DynamoDB-specific errors gracefully |
+
+---
+
+```python
+dynamodb = boto3.resource("dynamodb")
+TABLE_NAME = os.environ.get("TABLE_NAME", "visitor-counter")
+```
+
+- `boto3.resource("dynamodb")` creates a high-level DynamoDB client once at **cold-start** time (outside the handler) so it is reused across warm invocations — this improves performance.
+- `TABLE_NAME` is read from an **environment variable** so the same code works in dev, staging, and production without changes.
+
+---
+
+```python
+def lambda_handler(event, context):
+    table = dynamodb.Table(TABLE_NAME)
+```
+
+- `lambda_handler` is the **entry point** AWS calls every time the function is invoked.
+- `event` carries data from the API Gateway request (headers, query params, etc.).
+- `context` carries runtime metadata (function name, remaining time, etc.).
+- `dynamodb.Table(TABLE_NAME)` returns a reference to the DynamoDB table.
+
+---
+
+```python
+    response = table.update_item(
+        Key={"id": "visitor_count"},
+        UpdateExpression="ADD #count :increment",
+        ExpressionAttributeNames={"#count": "count"},
+        ExpressionAttributeValues={":increment": 1},
+        ReturnValues="UPDATED_NEW",
+    )
+```
+
+| Parameter | Explanation |
+| --- | --- |
+| `Key` | Identifies the single row in the table using the partition key `id = "visitor_count"` |
+| `UpdateExpression` | `ADD` atomically increments a numeric attribute — safe under concurrent requests |
+| `ExpressionAttributeNames` | `#count` is an alias for the reserved word `count` (DynamoDB reserves it) |
+| `ExpressionAttributeValues` | `:increment` is the value `1` — how much to add each visit |
+| `ReturnValues="UPDATED_NEW"` | Returns only the updated attribute so we can read the new count |
+
+> **Why `ADD` instead of `SET`?**
+> `ADD` is an **atomic increment** — if two users visit at the same millisecond, both increments are applied correctly. `SET count = count + 1` would require a read-modify-write cycle and could lose updates.
+
+---
+
+```python
+    count = int(response["Attributes"]["count"])
+```
+
+DynamoDB returns numbers as `Decimal` objects. Casting to `int` makes it JSON-serializable.
+
+---
+
+```python
+    return {
+        "statusCode": 200,
+        "headers": {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET,OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Content-Type": "application/json",
+        },
+        "body": json.dumps({"visitorCount": count}),
+    }
+```
+
+- `statusCode: 200` tells API Gateway the request succeeded.
+- **CORS headers** (`Access-Control-Allow-Origin: *`) allow the browser to call the API from any domain — required because the website is hosted on a different origin (S3) than the API.
+- `body` must be a **string**, so `json.dumps()` converts the dict to a JSON string.
+
+---
+
+```python
+    except ClientError as e:
+        print(f"DynamoDB error: {e.response['Error']['Message']}")
+        return {
+            "statusCode": 500,
+            ...
+        }
+```
+
+- `print()` writes to **CloudWatch Logs** automatically — no extra setup needed.
+- Returning `500` instead of crashing ensures the browser receives a proper error response instead of a timeout.
+
+---
+
+## website/script.js
+
+```javascript
+const API_URL = "https://YOUR_API_GATEWAY_URL/prod/count";
+```
+
+Replace this placeholder with the **Invoke URL** copied from the API Gateway console after deployment.
+
+---
+
+```javascript
+async function fetchVisitorCount() {
+  const countEl = document.getElementById("visitor-count");
+  const btn = document.getElementById("refresh-btn");
+
+  countEl.textContent = "...";
+  countEl.className = "counter loading";
+  btn.disabled = true;
+```
+
+- Sets the counter display to `"..."` and adds a CSS `loading` class (triggers a pulse animation) while the request is in flight.
+- Disables the Refresh button to prevent duplicate clicks.
+
+---
+
+```javascript
+  const response = await fetch(API_URL, { method: "GET" });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  countEl.textContent = data.visitorCount.toLocaleString();
+```
+
+- `fetch` makes the HTTP GET request to API Gateway.
+- `response.ok` is `true` for 2xx status codes; any other code throws an error.
+- `toLocaleString()` formats large numbers with commas (e.g. `1,245`).
+
+---
+
+```javascript
+  } catch (err) {
+    countEl.textContent = "Error";
+    countEl.className = "counter error";
+  } finally {
+    btn.disabled = false;
+  }
+```
+
+- `catch` shows `"Error"` in red if the API call fails (network down, Lambda error, etc.).
+- `finally` **always** re-enables the button, even if an error occurred.
+
+---
+
+```javascript
+document.addEventListener("DOMContentLoaded", fetchVisitorCount);
+```
+
+Calls `fetchVisitorCount` automatically when the page finishes loading, so the count appears immediately without the user needing to click Refresh.
+
+---
+
+## website/index.html
+
+```html
+<span id="visitor-count" class="counter">...</span>
+```
+
+- The `id="visitor-count"` is the DOM target that `script.js` updates with the live count.
+- Initial text `"..."` is shown before the API responds.
+
+---
+
+## website/style.css
+
+```css
+.counter.loading {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+```
+
+A subtle **fade in/out** animation plays on the counter while waiting for the API, giving the user a visual indicator that data is loading.
+
+```css
+.counter-wrapper {
+  background: linear-gradient(135deg, #e94560, #0f3460);
+}
+```
+
+The counter box uses a **CSS gradient** — no images needed — keeping the website fast to load from S3.
+
+---
+
 # Skills Covered
 
 * Static website hosting on S3
