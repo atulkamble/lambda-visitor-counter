@@ -1,70 +1,73 @@
-// Replace this with your actual API Gateway endpoint after deployment
-const API_URL = "https://YOUR_API_GATEWAY_URL/prod/count";
-
-/**
- * Animates the counter from `start` to `end` over `duration` ms.
- */
-function animateCount(el, start, end, duration = 900) {
-  const range = end - start;
-  if (range === 0) return;
-  const startTime = performance.now();
-
-  function step(now) {
-    const elapsed = now - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-    // Ease-out cubic
-    const eased = 1 - Math.pow(1 - progress, 3);
-    const current = Math.round(start + range * eased);
-    el.textContent = current.toLocaleString();
-    if (progress < 1) requestAnimationFrame(step);
-  }
-
-  requestAnimationFrame(step);
-}
+const API_URL = "https://wiig3hh7s4.execute-api.us-east-1.amazonaws.com/prod/count";
 
 let lastCount = 0;
 
-async function fetchVisitorCount() {
-  const countEl = document.getElementById("visitor-count");
-  const subEl   = document.getElementById("counter-sub");
-  const btn     = document.getElementById("refresh-btn");
+function animateCount(el, start, end, duration = 800) {
+    const range = end - start;
+    const startTime = performance.now();
 
-  countEl.className = "counter loading";
-  countEl.textContent = "—";
-  subEl.textContent = "Fetching count\u2026";
-  btn.disabled = true;
+    function update(currentTime) {
+        const progress = Math.min((currentTime - startTime) / duration, 1);
+        const value = Math.floor(start + range * progress);
+        el.textContent = value.toLocaleString();
 
-  try {
-    const response = await fetch(API_URL, { method: "GET" });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        }
     }
 
-    const data = await response.json();
-    const newCount = data.visitorCount;
-
-    countEl.className = "counter";
-    animateCount(countEl, lastCount, newCount);
-
-    // Pop animation on update
-    countEl.classList.remove("pop");
-    void countEl.offsetWidth; // reflow
-    countEl.classList.add("pop");
-
-    const now = new Date();
-    subEl.textContent = `Last updated at ${now.toLocaleTimeString()}`;
-    lastCount = newCount;
-
-  } catch (err) {
-    console.error("Failed to fetch visitor count:", err);
-    countEl.textContent = "Error";
-    countEl.className = "counter error";
-    subEl.textContent = "Could not reach the API. Please try again.";
-  } finally {
-    btn.disabled = false;
-  }
+    requestAnimationFrame(update);
 }
 
-// Fetch count on page load
+async function fetchVisitorCount() {
+
+    const counter = document.getElementById("visitor-count");
+    const sub = document.getElementById("counter-sub");
+    const btn = document.getElementById("refresh-btn");
+
+    btn.disabled = true;
+    counter.textContent = "...";
+    sub.textContent = "Loading...";
+
+    try {
+
+        const response = await fetch(API_URL);
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        console.log(result);
+
+        // Support both response formats
+        const count =
+            result.count ??
+            result.visitorCount ??
+            JSON.parse(result.body || "{}").count ??
+            JSON.parse(result.body || "{}").visitorCount;
+
+        animateCount(counter, lastCount, Number(count));
+
+        lastCount = Number(count);
+
+        sub.textContent =
+            "Last Updated : " + new Date().toLocaleTimeString();
+
+    } catch (err) {
+
+        console.error(err);
+
+        counter.textContent = "Error";
+        sub.textContent = err.message;
+
+    } finally {
+
+        btn.disabled = false;
+
+    }
+
+}
+
 document.addEventListener("DOMContentLoaded", fetchVisitorCount);
