@@ -1,4 +1,4 @@
-const API_URL = "https://wiig3hh7s4.execute-api.us-east-1.amazonaws.com/prod/count";
+const API_URL = "https://yh3vw26c7h.execute-api.us-east-1.amazonaws.com/prod/count";
 
 let lastCount = 0;
 
