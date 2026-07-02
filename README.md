@@ -1,348 +1,365 @@
-A **Visitor Counter** is one of the easiest and most practical AWS Lambda projects. It demonstrates serverless architecture, API integration, database usage, and a simple web UI.
+# 🚀 AWS Lambda + API Gateway + DynamoDB Visitor Counter Project
 
-# AWS Visitor Counter Project
-
-## Objective
-
-Create a website that displays the total number of visitors.
-
-Each page refresh increments the visitor count automatically.
+Build a **serverless visitor counter application** using **AWS Lambda**, **Amazon API Gateway**, **Amazon DynamoDB**, and a static website hosted on **Amazon EC2 (Apache)**.
 
 ---
 
-# Architecture
+# 📌 Architecture
 
 ```text
-                User
-                  │
-                  ▼
-          Static Website (HTML/CSS/JS)
-                  │
-          JavaScript Fetch API
-                  │
-                  ▼
-            API Gateway
-                  │
-                  ▼
-             AWS Lambda
-                  │
-          Read/Update Counter
-                  │
-                  ▼
-            DynamoDB Table
+                 User Browser
+                      │
+                      ▼
+          Static Website (EC2 + Apache)
+                      │
+          JavaScript (fetch API)
+                      │
+                      ▼
+              Amazon API Gateway
+                      │
+                      ▼
+               AWS Lambda Function
+                      │
+             Read/Update Visitor Count
+                      │
+                      ▼
+              Amazon DynamoDB
 ```
 
 ---
 
-# AWS Services Used
+# 🛠 Prerequisites
 
-| Service     | Purpose             |
-| ----------- | ------------------- |
-| AWS Lambda  | Backend logic       |
-| API Gateway | REST API            |
-| DynamoDB    | Store visitor count |
-| S3          | Static Website      |
-| IAM         | Permissions         |
-| CloudWatch  | Logs                |
+* AWS Account
+* IAM Administrator User
+* AWS CLI Installed
+* Git
+* Python
+* Amazon Linux EC2 Instance
+* GitHub Repository
 
----
+Repository:
 
-# Project Flow
-
-```text
-Open Website
-
-↓
-
-JavaScript calls API Gateway
-
-↓
-
-API Gateway invokes Lambda
-
-↓
-
-Lambda reads current count
-
-↓
-
-Lambda increments count
-
-↓
-
-Store updated count
-
-↓
-
-Return latest count
-
-↓
-
-Website displays count
+```bash
+https://github.com/atulkamble/lambda-visitor-counter.git
 ```
 
 ---
 
-# Folder Structure
+# 📚 Services Used
 
-```text
-visitor-counter/
+| Service        | Purpose                           |
+| -------------- | --------------------------------- |
+| IAM            | User Authentication & Permissions |
+| EC2            | Host Static Website               |
+| Apache (httpd) | Web Server                        |
+| Git            | Download Website Source Code      |
+| Lambda         | Backend Logic                     |
+| API Gateway    | REST API                          |
+| DynamoDB       | Store Visitor Count               |
+| AWS CLI        | Resource Management               |
 
-│
-├── lambda/
-│      lambda_function.py
-│
-├── website/
-│      index.html
-│      style.css
-│      script.js
-│
-├── architecture.png
-│
-└── README.md
+---
+
+# Step 1️⃣ Configure IAM User
+
+Create an **IAM User**
+
+```
+IAM
+ ├── Users
+ ├── Groups
+ └── Policies
 ```
 
-Repository Name
+Assign the user to an **Administrator Group**.
 
-```text
-aws-lambda-visitor-counter
+Attach:
+
+```
+AdministratorAccess
+```
+
+Create an **Access Key**
+
+```
+Access Key ID
+
+Secret Access Key
+```
+
+These credentials will be used to configure the AWS CLI.
+
+---
+
+# Step 2️⃣ Launch EC2 Instance
+
+Launch an **Amazon Linux 2023** EC2 instance.
+
+Connect using SSH.
+
+---
+
+## Install Required Packages
+
+```bash
+sudo yum update -y
+
+sudo yum install git python aws-cli httpd -y
+
+sudo systemctl start httpd
+
+sudo systemctl enable httpd
 ```
 
 ---
 
-# Step 1 Create DynamoDB Table
+## Clone Project
 
-Table Name
+```bash
+cd /var/www/html
 
-```text
-VisitorCounter
+sudo su
+
+git clone https://github.com/atulkamble/lambda-visitor-counter.git
 ```
 
-Partition Key
+---
 
-```text
-id
+## Copy Website Files
+
+```bash
+sudo mv /var/www/html/lambda-visitor-counter/website/* /var/www/html
 ```
 
-Value
+Verify:
 
-```text
-visitor
+```
+index.html
+script.js
+style.css
+```
+
+---
+
+# Step 3️⃣ Configure AWS CLI
+
+Configure AWS CLI.
+
+```bash
+aws configure
+```
+
+Enter
+
+```
+AWS Access Key ID
+
+AWS Secret Access Key
+
+Region:
+us-east-1
+
+Output:
+json
+```
+
+Verify
+
+```bash
+aws sts get-caller-identity
 ```
 
 Example
 
-| id      | count |
-| ------- | ----- |
-| visitor | 0     |
-
----
-
-# Step 2 Create IAM Role
-
-Attach
-
-```
-AWSLambdaBasicExecutionRole
-```
-
-Add DynamoDB permissions
-
-```
-GetItem
-UpdateItem
-PutItem
-```
-
----
-
-# Step 3 Create Lambda Function
-
-Runtime
-
-```
-Python 3.13
-```
-
-Name
-
-```
-visitor-counter
-```
-
----
-
-## Lambda Code
-
-```python
-import json
-import boto3
-
-table = boto3.resource('dynamodb').Table('VisitorCounter')
-
-def lambda_handler(event, context):
-
-    response = table.update_item(
-        Key={'id':'visitor'},
-        UpdateExpression="ADD #c :inc",
-        ExpressionAttributeNames={
-            "#c":"count"
-        },
-        ExpressionAttributeValues={
-            ":inc":1
-        },
-        ReturnValues="UPDATED_NEW"
-    )
-
-    count = int(response["Attributes"]["count"])
-
-    return {
-        "statusCode":200,
-        "headers":{
-            "Access-Control-Allow-Origin":"*"
-        },
-        "body":json.dumps({
-            "count":count
-        })
-    }
-```
-
----
-
-# Step 4 Create API Gateway
-
-```
-HTTP API
-```
-
-Route
-
-```
-GET /count
-```
-
-Integration
-
-```
-Lambda
-```
-
-Enable
-
-```
-CORS
-```
-
----
-
-# Step 5 Website
-
-## index.html
-
-```html
-<!DOCTYPE html>
-<html>
-
-<head>
-    <title>Visitor Counter</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-
-<body>
-
-<h1>AWS Visitor Counter</h1>
-
-<div class="card">
-
-<p>Total Visitors</p>
-
-<h2 id="count">Loading...</h2>
-
-</div>
-
-<script src="script.js"></script>
-
-</body>
-
-</html>
-```
-
----
-
-## style.css
-
-```css
-body{
-    font-family:Arial;
-    background:#f5f5f5;
-    text-align:center;
-    margin-top:120px;
-}
-
-.card{
-
-width:300px;
-margin:auto;
-padding:30px;
-background:white;
-border-radius:10px;
-box-shadow:0 0 10px gray;
-
-}
-
-h2{
-font-size:45px;
-color:#0073e6;
+```json
+{
+  "UserId": "...",
+  "Account": "123456789012",
+  "Arn": "arn:aws:iam::123456789012:user/admin"
 }
 ```
 
 ---
 
-## script.js
+# Step 4️⃣ Create DynamoDB Table
 
-Replace with your API URL.
+Create the table.
 
-```javascript
-fetch("https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/count")
-.then(response=>response.json())
-.then(data=>{
-document.getElementById("count").innerHTML=data.count;
-});
+```bash
+aws dynamodb create-table \
+    --table-name VisitorCounter \
+    --attribute-definitions AttributeName=id,AttributeType=S \
+    --key-schema AttributeName=id,KeyType=HASH \
+    --billing-mode PAY_PER_REQUEST \
+    --region us-east-1
 ```
 
 ---
 
-# Step 6 Upload Website
+## Verify Table
 
-```
-S3
-```
-
-Enable
-
-```
-Static Website Hosting
-```
-
-Upload
-
-```
-index.html
-style.css
-script.js
+```bash
+aws dynamodb describe-table \
+    --table-name VisitorCounter
 ```
 
 ---
 
-# Step 7 Test
+## List Tables
+
+```bash
+aws dynamodb list-tables
+```
+
+---
+
+## Insert Initial Record
+
+```bash
+aws dynamodb put-item \
+    --table-name VisitorCounter \
+    --item '{
+        "id":{"S":"visitor"},
+        "count":{"N":"0"}
+    }'
+```
+
+---
+
+## Verify Data
+
+```bash
+aws dynamodb scan \
+    --table-name VisitorCounter
+```
+
+Expected Output
+
+```text
+id      visitor
+
+count   0
+```
+
+---
+
+# Step 5️⃣ Create Lambda Function
+
+Make the deployment script executable.
+
+```bash
+chmod +x lambda.sh
+```
+
+Run it.
+
+```bash
+./lambda.sh
+```
+
+The script creates:
+
+* IAM Role
+* Lambda Function
+* Required Permissions
+* Lambda Deployment Package
+
+---
+
+## Verify Lambda
+
+```bash
+aws lambda get-function \
+    --function-name visitor-counter \
+    --query "Configuration.FunctionArn" \
+    --output text
+```
+
+Example
+
+```
+arn:aws:lambda:us-east-1:123456789012:function:visitor-counter
+```
+
+---
+
+# Step 6️⃣ Create API Gateway
+
+Make the API Gateway script executable.
+
+```bash
+chmod +x apigateway.sh
+```
+
+Run
+
+```bash
+./apigateway.sh
+```
+
+The script creates:
+
+* REST API
+* Resource
+* GET Method
+* Lambda Integration
+* Deployment
+* Invoke URL
+
+Example
+
+```
+https://abc123.execute-api.us-east-1.amazonaws.com/prod/visitor
+```
+
+---
+
+# Step 7️⃣ Update Website
 
 Open
 
 ```
-Website URL
+script.js
 ```
 
-Every refresh
+Replace the API URL.
+
+Example
+
+```javascript
+const API_URL = "https://abc123.execute-api.us-east-1.amazonaws.com/prod/visitor";
+```
+
+Save the file.
+
+---
+
+# Step 8️⃣ Access Website
+
+Open the EC2 Public IP in your browser.
+
+Example
+
+```
+http://32.192.42.219/
+```
+
+---
+
+# Expected Output
+
+```
+Visitor Counter
+
+Powered by AWS Serverless
+
+Total Visitors
+
+1
+```
+
+Refreshing the page should increase the visitor count.
 
 ```
 1
@@ -353,291 +370,603 @@ Every refresh
 
 4
 
-5
-```
-
-Counter increases.
-
----
-
-# Architecture Diagram
-
-```text
-                Browser
-                   │
-                   ▼
-          S3 Static Website
-                   │
-          JavaScript Fetch()
-                   │
-                   ▼
-             API Gateway
-                   │
-                   ▼
-              AWS Lambda
-                   │
-          Update Visitor Count
-                   │
-                   ▼
-              DynamoDB
+...
 ```
 
 ---
 
-# Sample Output
+# Complete Flow
 
 ```text
------------------------------
- AWS Visitor Counter
------------------------------
+User
+ │
+ ▼
+EC2 Website
+ │
+ ▼
+script.js
+ │
+ ▼
+API Gateway
+ │
+ ▼
+Lambda Function
+ │
+ ▼
+DynamoDB
+ │
+Update Count
+ │
+ ▼
+Return JSON
+ │
+ ▼
+Website Displays Count
+```
+
+---
+
+# Project Directory
+
+```text
+lambda-visitor-counter/
+│
+├── website/
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
+│
+├── lambda/
+│   ├── lambda_function.py
+│   └── requirements.txt
+│
+├── lambda.sh
+├── apigateway.sh
+├── trust-policy.json
+└── README.md
+```
+
+---
+
+# Useful AWS CLI Commands
+
+## Check Caller Identity
+
+```bash
+aws sts get-caller-identity
+```
+
+---
+
+## List Lambda Functions
+
+```bash
+aws lambda list-functions
+```
+
+---
+
+## List APIs
+
+```bash
+aws apigateway get-rest-apis
+```
+
+---
+
+## Get API Stages
+
+```bash
+aws apigateway get-stages \
+  --rest-api-id <API_ID>
+```
+
+---
+
+## Get Lambda ARN
+
+```bash
+aws lambda get-function \
+    --function-name visitor-counter \
+    --query "Configuration.FunctionArn" \
+    --output text
+```
+
+---
+
+## Scan DynamoDB
+
+```bash
+aws dynamodb scan \
+    --table-name VisitorCounter
+```
+
+---
+
+## Delete Lambda
+
+```bash
+aws lambda delete-function \
+    --function-name visitor-counter
+```
+
+---
+
+## Delete DynamoDB Table
+
+```bash
+aws dynamodb delete-table \
+    --table-name VisitorCounter
+```
+
+---
+
+# Learning Outcomes
+
+After completing this project, you will understand:
+
+* ✅ IAM Users and Permissions
+* ✅ AWS CLI Configuration
+* ✅ Amazon EC2 Setup
+* ✅ Apache Web Server Hosting
+* ✅ Git Repository Management
+* ✅ Amazon DynamoDB CRUD Operations
+* ✅ AWS Lambda Deployment
+* ✅ API Gateway REST API Integration
+* ✅ JavaScript Fetch API
+* ✅ End-to-End Serverless Architecture
+* ✅ Building a Production-Style Visitor Counter Application
+
+
+Below is the updated documentation section with the **actual project code** (HTML, JavaScript, and CSS) included based on your uploaded project. The website uses a modern UI and fetches the visitor count from your deployed API Gateway endpoint. 
+
+---
+
+# 🚀 AWS Lambda Visitor Counter Project
+
+## 📖 Project Overview
+
+This project demonstrates how to build a **Serverless Visitor Counter** using:
+
+* ✅ Amazon EC2 (Static Website Hosting)
+* ✅ Apache Web Server
+* ✅ AWS Lambda
+* ✅ Amazon API Gateway
+* ✅ Amazon DynamoDB
+* ✅ JavaScript Fetch API
+
+When a user visits the website:
+
+1. Website loads from EC2
+2. JavaScript calls API Gateway
+3. API Gateway invokes Lambda
+4. Lambda increments visitor count in DynamoDB
+5. Updated count is returned
+6. Website displays the latest visitor count
+
+---
+
+# 🏗 Architecture
+
+```text
+                     Internet
+                         │
+                         ▼
+              Amazon EC2 (Apache)
+             Static HTML/CSS/JS Website
+                         │
+                fetch(API Gateway)
+                         │
+                         ▼
+                Amazon API Gateway
+                         │
+                         ▼
+                 AWS Lambda Function
+                         │
+                  Read / Update Count
+                         │
+                         ▼
+                  Amazon DynamoDB
+```
+
+---
+
+# 📂 Project Structure
+
+```text
+lambda-visitor-counter/
+
+│
+├── website/
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
+│
+├── lambda/
+│   ├── lambda_function.py
+│   └── requirements.txt
+│
+├── lambda.sh
+├── apigateway.sh
+├── trust-policy.json
+└── README.md
+```
+
+---
+
+# Step 1 – IAM Configuration
+
+Create an IAM User
+
+```
+IAM
+ ├── User
+ ├── Group
+ └── AdministratorAccess
+```
+
+Generate
+
+* Access Key
+* Secret Access Key
+
+Configure AWS CLI
+
+```bash
+aws configure
+```
+
+---
+
+# Step 2 – Launch EC2
+
+Install required packages
+
+```bash
+sudo yum update -y
+
+sudo yum install git python aws-cli httpd -y
+
+sudo systemctl start httpd
+sudo systemctl enable httpd
+```
+
+Clone repository
+
+```bash
+cd /var/www/html
+
+sudo su
+
+git clone https://github.com/atulkamble/lambda-visitor-counter.git
+```
+
+Copy website
+
+```bash
+mv /var/www/html/lambda-visitor-counter/website/* /var/www/html
+```
+
+---
+
+# Step 3 – Create DynamoDB
+
+```bash
+aws dynamodb create-table \
+    --table-name VisitorCounter \
+    --attribute-definitions AttributeName=id,AttributeType=S \
+    --key-schema AttributeName=id,KeyType=HASH \
+    --billing-mode PAY_PER_REQUEST \
+    --region us-east-1
+```
+
+Verify
+
+```bash
+aws dynamodb describe-table \
+--table-name VisitorCounter
+```
+
+Insert initial record
+
+```bash
+aws dynamodb put-item \
+    --table-name VisitorCounter \
+    --item '{
+        "id":{"S":"visitor"},
+        "count":{"N":"0"}
+    }'
+```
+
+Check data
+
+```bash
+aws dynamodb scan \
+--table-name VisitorCounter
+```
+
+---
+
+# Step 4 – Deploy Lambda
+
+```bash
+chmod +x lambda.sh
+
+./lambda.sh
+```
+
+Verify Lambda
+
+```bash
+aws lambda get-function \
+--function-name visitor-counter \
+--query "Configuration.FunctionArn" \
+--output text
+```
+
+---
+
+# Step 5 – Deploy API Gateway
+
+```bash
+chmod +x apigateway.sh
+
+./apigateway.sh
+```
+
+Example output
+
+```
+https://xxxxxxxx.execute-api.us-east-1.amazonaws.com/prod/count
+```
+
+---
+
+# Step 6 – Update Website
+
+Open
+
+```
+script.js
+```
+
+Replace API URL
+
+```javascript
+const API_URL =
+"https://yh3vw26c7h.execute-api.us-east-1.amazonaws.com/prod/count";
+```
+
+This endpoint is used by the website to retrieve the latest visitor count. 
+
+---
+
+# Website Code
+
+## index.html
+
+Features:
+
+* Animated glassmorphism UI
+* Visitor Counter
+* Live badge
+* Refresh button
+* Tech stack badges
+* Responsive layout
+
+```text
+index.html
+```
+
+Contains:
+
+* Live Status
+* Visitor Counter
+* Refresh Button
+* AWS Technology Tags
+* Animated Background
+
+---
+
+## script.js
+
+The JavaScript file performs the following tasks:
+
+✔ Calls API Gateway
+
+✔ Parses JSON response
+
+✔ Supports both Lambda Proxy formats
+
+```javascript
+const count =
+    result.count ??
+    result.visitorCount ??
+    JSON.parse(result.body || "{}").count ??
+    JSON.parse(result.body || "{}").visitorCount;
+```
+
+Features
+
+* Animated counter
+* Loading state
+* Error handling
+* Last updated time
+* Refresh button
+* Async Fetch API
+
+---
+
+## style.css
+
+The website includes:
+
+* Glassmorphism UI
+* Animated glowing background
+* Gradient counter
+* Responsive design
+* Modern typography
+* Hover animations
+* Loading spinner
+* Gradient button
+* Mobile support
+
+---
+
+# Running Application
+
+Open browser
+
+```
+http://EC2-PUBLIC-IP/
+```
+
+Example
+
+```
+http://32.192.42.219/
+```
+
+Website
+
+```
+Live
+
+Visitor Counter
+
+Powered by Serverless AWS Infrastructure
 
 Total Visitors
 
-1245
+15
+
+Lambda
+API Gateway
+DynamoDB
+S3
+
+Refresh
 ```
 
 ---
 
-# Code Explanation
+# Request Flow
 
-## lambda/lambda_function.py
+```text
+Browser
 
-```python
-import json
-import boto3
-import os
-from botocore.exceptions import ClientError
+↓
+
+index.html
+
+↓
+
+script.js
+
+↓
+
+fetch()
+
+↓
+
+API Gateway
+
+↓
+
+Lambda
+
+↓
+
+DynamoDB
+
+↓
+
+Increment Count
+
+↓
+
+Return JSON
+
+↓
+
+Display Count
 ```
-
-| Import | Purpose |
-| --- | --- |
-| `json` | Serialize the HTTP response body to a JSON string |
-| `boto3` | AWS SDK for Python — used to talk to DynamoDB |
-| `os` | Read the `TABLE_NAME` environment variable at runtime |
-| `ClientError` | Catch DynamoDB-specific errors gracefully |
 
 ---
 
-```python
-dynamodb = boto3.resource("dynamodb")
-TABLE_NAME = os.environ.get("TABLE_NAME", "visitor-counter")
-```
+# Example Response
 
-- `boto3.resource("dynamodb")` creates a high-level DynamoDB client once at **cold-start** time (outside the handler) so it is reused across warm invocations — this improves performance.
-- `TABLE_NAME` is read from an **environment variable** so the same code works in dev, staging, and production without changes.
-
----
-
-```python
-def lambda_handler(event, context):
-    table = dynamodb.Table(TABLE_NAME)
-```
-
-- `lambda_handler` is the **entry point** AWS calls every time the function is invoked.
-- `event` carries data from the API Gateway request (headers, query params, etc.).
-- `context` carries runtime metadata (function name, remaining time, etc.).
-- `dynamodb.Table(TABLE_NAME)` returns a reference to the DynamoDB table.
-
----
-
-```python
-    response = table.update_item(
-        Key={"id": "visitor_count"},
-        UpdateExpression="ADD #count :increment",
-        ExpressionAttributeNames={"#count": "count"},
-        ExpressionAttributeValues={":increment": 1},
-        ReturnValues="UPDATED_NEW",
-    )
-```
-
-| Parameter | Explanation |
-| --- | --- |
-| `Key` | Identifies the single row in the table using the partition key `id = "visitor_count"` |
-| `UpdateExpression` | `ADD` atomically increments a numeric attribute — safe under concurrent requests |
-| `ExpressionAttributeNames` | `#count` is an alias for the reserved word `count` (DynamoDB reserves it) |
-| `ExpressionAttributeValues` | `:increment` is the value `1` — how much to add each visit |
-| `ReturnValues="UPDATED_NEW"` | Returns only the updated attribute so we can read the new count |
-
-> **Why `ADD` instead of `SET`?**
-> `ADD` is an **atomic increment** — if two users visit at the same millisecond, both increments are applied correctly. `SET count = count + 1` would require a read-modify-write cycle and could lose updates.
-
----
-
-```python
-    count = int(response["Attributes"]["count"])
-```
-
-DynamoDB returns numbers as `Decimal` objects. Casting to `int` makes it JSON-serializable.
-
----
-
-```python
-    return {
-        "statusCode": 200,
-        "headers": {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET,OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-            "Content-Type": "application/json",
-        },
-        "body": json.dumps({"visitorCount": count}),
-    }
-```
-
-- `statusCode: 200` tells API Gateway the request succeeded.
-- **CORS headers** (`Access-Control-Allow-Origin: *`) allow the browser to call the API from any domain — required because the website is hosted on a different origin (S3) than the API.
-- `body` must be a **string**, so `json.dumps()` converts the dict to a JSON string.
-
----
-
-```python
-    except ClientError as e:
-        print(f"DynamoDB error: {e.response['Error']['Message']}")
-        return {
-            "statusCode": 500,
-            ...
-        }
-```
-
-- `print()` writes to **CloudWatch Logs** automatically — no extra setup needed.
-- Returning `500` instead of crashing ensures the browser receives a proper error response instead of a timeout.
-
----
-
-## website/script.js
-
-```javascript
-const API_URL = "https://YOUR_API_GATEWAY_URL/prod/count";
-```
-
-Replace this placeholder with the **Invoke URL** copied from the API Gateway console after deployment.
-
----
-
-```javascript
-async function fetchVisitorCount() {
-  const countEl = document.getElementById("visitor-count");
-  const btn = document.getElementById("refresh-btn");
-
-  countEl.textContent = "...";
-  countEl.className = "counter loading";
-  btn.disabled = true;
-```
-
-- Sets the counter display to `"..."` and adds a CSS `loading` class (triggers a pulse animation) while the request is in flight.
-- Disables the Refresh button to prevent duplicate clicks.
-
----
-
-```javascript
-  const response = await fetch(API_URL, { method: "GET" });
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-
-  const data = await response.json();
-  countEl.textContent = data.visitorCount.toLocaleString();
-```
-
-- `fetch` makes the HTTP GET request to API Gateway.
-- `response.ok` is `true` for 2xx status codes; any other code throws an error.
-- `toLocaleString()` formats large numbers with commas (e.g. `1,245`).
-
----
-
-```javascript
-  } catch (err) {
-    countEl.textContent = "Error";
-    countEl.className = "counter error";
-  } finally {
-    btn.disabled = false;
-  }
-```
-
-- `catch` shows `"Error"` in red if the API call fails (network down, Lambda error, etc.).
-- `finally` **always** re-enables the button, even if an error occurred.
-
----
-
-```javascript
-document.addEventListener("DOMContentLoaded", fetchVisitorCount);
-```
-
-Calls `fetchVisitorCount` automatically when the page finishes loading, so the count appears immediately without the user needing to click Refresh.
-
----
-
-## website/index.html
-
-```html
-<span id="visitor-count" class="counter">...</span>
-```
-
-- The `id="visitor-count"` is the DOM target that `script.js` updates with the live count.
-- Initial text `"..."` is shown before the API responds.
-
----
-
-## website/style.css
-
-```css
-.counter.loading {
-  animation: pulse 1.2s ease-in-out infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.3; }
+```json
+{
+    "count": 17
 }
 ```
 
-A subtle **fade in/out** animation plays on the counter while waiting for the API, giving the user a visual indicator that data is loading.
+or
 
-```css
-.counter-wrapper {
-  background: linear-gradient(135deg, #e94560, #0f3460);
+```json
+{
+    "statusCode":200,
+    "body":"{\"count\":17}"
 }
 ```
 
-The counter box uses a **CSS gradient** — no images needed — keeping the website fast to load from S3.
+The JavaScript handles both response formats automatically. 
 
 ---
 
-# Skills Covered
+# Useful Commands
 
-* Static website hosting on S3
-* AWS Lambda development
-* API Gateway integration
-* DynamoDB CRUD operations
-* IAM roles and least-privilege access
-* CloudWatch logging
+## List Lambda
+
+```bash
+aws lambda list-functions
+```
+
+## List APIs
+
+```bash
+aws apigateway get-rest-apis
+```
+
+## Scan DynamoDB
+
+```bash
+aws dynamodb scan \
+--table-name VisitorCounter
+```
+
+## Delete Lambda
+
+```bash
+aws lambda delete-function \
+--function-name visitor-counter
+```
+
+## Delete Table
+
+```bash
+aws dynamodb delete-table \
+--table-name VisitorCounter
+```
+
+---
+
+# Learning Outcomes
+
+After completing this project, you will understand:
+
+* IAM User & Access Keys
+* AWS CLI Configuration
+* Amazon EC2 Static Website Hosting
+* Apache Web Server
+* Git & GitHub Integration
+* Amazon DynamoDB Operations
+* AWS Lambda Development
+* API Gateway REST APIs
 * JavaScript Fetch API
-* Serverless application architecture
+* JSON Processing
+* Serverless Application Architecture
+* End-to-End AWS Cloud Integration
 
----
-
-# Possible Enhancements
-
-* Add a **Reset Counter** button (admin only).
-* Display **Today's Visitors** and **Total Visitors** separately.
-* Show the **Last Visit Time**.
-* Capture visitor metadata such as country or browser (respecting privacy).
-* Use a custom domain with HTTPS via **CloudFront** and **Route 53**.
-* Build a dashboard with charts using **Amazon CloudWatch** or a frontend framework like React.
-
----
-
-# Interview Questions
-
-1. Why use DynamoDB instead of S3 to store the count?
-2. What is the purpose of `UpdateExpression` in DynamoDB?
-3. Why is `ADD` preferred for incrementing counters?
-4. How does API Gateway invoke Lambda?
-5. Why is CORS required?
-6. What IAM permissions does the Lambda function need?
-7. What happens if two users refresh the page simultaneously?
-8. How does DynamoDB ensure atomic counter updates?
-9. How would you prevent abuse of the API?
-10. How would you scale this application to millions of requests per day?
-
-This project is excellent for learning core serverless concepts and is a common portfolio project because it combines frontend, backend, API, and database components in a simple, production-style architecture.
+This project provides a practical, production-style example of integrating frontend, serverless compute, and NoSQL storage into a complete AWS application.
