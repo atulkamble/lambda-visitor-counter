@@ -105,8 +105,14 @@ Connect using SSH.
 ```bash
 sudo yum update -y
 sudo yum install git python aws-cli httpd tree -y
-sudo systemctl start httpd
+git --version
+python --version
+httpd -v
+aws --version
+tree --version
 sudo systemctl enable httpd
+sudo systemctl start httpd
+sudo systemctl status httpd
 ```
 
 ---
@@ -127,6 +133,8 @@ git clone https://github.com/atulkamble/lambda-visitor-counter.git
 
 ```bash
 sudo mv /var/www/html/lambda-visitor-counter/website/* /var/www/html
+sudo rm -rf lambda-visitor-counter
+tree
 ```
 
 Verify:
