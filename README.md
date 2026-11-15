@@ -176,6 +176,13 @@ Example
   "Arn": "arn:aws:iam::123456789012:user/admin"
 }
 ```
+```json
+{
+    "UserId": "AIDAXZEFIC7NPDMDUW3DV",
+    "Account": "535002879962",
+    "Arn": "arn:aws:iam::535002879962:user/atul"
+}
+```
 
 ---
 
