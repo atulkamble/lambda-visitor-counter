@@ -104,7 +104,7 @@ Connect using SSH.
 
 ```bash
 sudo yum update -y
-sudo yum install git python aws-cli httpd -y
+sudo yum install git python aws-cli httpd tree -y
 sudo systemctl start httpd
 sudo systemctl enable httpd
 ```
